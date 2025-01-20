@@ -1,6 +1,8 @@
-﻿using System.IO.Ports;
+﻿using System.Globalization;
+using System.IO.Ports;
 using System.Text;
 using System.Text.RegularExpressions;
+using WindDataReceiver.MessageBroker;
 
 namespace WindDataReceiver.Services
 {
@@ -9,22 +11,24 @@ namespace WindDataReceiver.Services
         private readonly ILogger<ComPortWorker> _logger;
         private readonly SerialPort _serialPort;
         private readonly StringBuilder _dataBuffer;
+        private readonly IRabbitMQPublisher _rabbitMQPublisher;
         private const int NumberOfBits = 15;
         private const char StartChar = '$';
         private const string EndChars = "\r\n";
 
-        public ComPortWorker(ILogger<ComPortWorker> logger)
+        public ComPortWorker(ILogger<ComPortWorker> logger, IRabbitMQPublisher rabbitMQPublisher)
         {
             _logger = logger;
             _serialPort = new SerialPort
             {
-                PortName = "COM2",
+                PortName = "COM9",
                 BaudRate = 2400,
                 Parity = Parity.None,
                 DataBits = 8,
                 StopBits = StopBits.One
             };
             _dataBuffer = new StringBuilder();
+            _rabbitMQPublisher = rabbitMQPublisher;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -45,7 +49,7 @@ namespace WindDataReceiver.Services
                             _dataBuffer.Append(data);
                             _logger.LogInformation($"Received data: {data}.");
 
-                            ProcessBuffer();
+                            await ProcessBufferAsync();
                         }
                     }
                     catch (Exception ex)
@@ -71,7 +75,7 @@ namespace WindDataReceiver.Services
         }
 
 
-        private void ProcessBuffer()
+        private async Task ProcessBufferAsync()
         {
             string bufferContent = _dataBuffer.ToString();
 
@@ -85,11 +89,12 @@ namespace WindDataReceiver.Services
                     string message = bufferContent.Substring(startIndex, endIndex - startIndex + 2);
                     _dataBuffer.Remove(0, endIndex + 2);
                     bufferContent = _dataBuffer.ToString();
-                    ProcessData(message);
+                    await ProcessDataAsync(message);
                 }
                 else
                 {
                     _dataBuffer.Remove(0, startIndex);
+                    await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     _logger.LogWarning("Incorrect package.");
                     break;
                 }
@@ -105,17 +110,19 @@ namespace WindDataReceiver.Services
                         bufferContent = _dataBuffer.ToString();
                     }
 
+                    await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     _logger.LogWarning("Incorrect package.");
                 }
                 else
                 {
                     _dataBuffer.Clear();
+                    await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     _logger.LogWarning("Incorrect package.");
                 }
             }
         }
 
-        private void ProcessData(string data)
+        private async Task ProcessDataAsync(string data)
         {
             string pattern = @"^\$\d+(\.\d+)?\,\d+(\.\d+)?\r$";
 
@@ -125,10 +132,17 @@ namespace WindDataReceiver.Services
                 int endIndex = data.IndexOf(',');
                 string ws = data.Substring(startIndex, endIndex - 1);
                 string wd = data.Substring(endIndex + 1).Trim();
+                WindData windData = new WindData
+                {
+                    WindSpeed = double.Parse(ws,NumberStyles.Any, CultureInfo.InvariantCulture),
+                    WindDirection = double.Parse(wd, NumberStyles.Any, CultureInfo.InvariantCulture)
+                };
+                await _rabbitMQPublisher.PublishMessageAsync(windData, RabbitMQQueues.WindDataQueue);
                 _logger.LogInformation($"ws = {ws}, wd = {wd}");
             }
             else
             {
+                await _rabbitMQPublisher.PublishMessageAsync("Parsing error", RabbitMQQueues.WindDataQueue);
                 _logger.LogWarning($"Parsing error: {data}.");
             }
         }
