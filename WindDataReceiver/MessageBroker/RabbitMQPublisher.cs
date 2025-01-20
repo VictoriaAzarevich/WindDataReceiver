@@ -3,19 +3,22 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
 using System.Text;
+using WindDataReceiver.Services;
 
 namespace WindDataReceiver.MessageBroker
 {
-    public class RabbitMQPublisher<T> : IRabbitMQPublisher<T>
+    public class RabbitMQPublisher : IRabbitMQPublisher
     {
+        private readonly ILogger<RabbitMQPublisher> _logger;
         private readonly RabbitMQSetting _rabbitMQSsetting;
 
-        public RabbitMQPublisher(IOptions<RabbitMQSetting> rabbitMQSetting)
+        public RabbitMQPublisher(ILogger<RabbitMQPublisher> logger, IOptions<RabbitMQSetting> rabbitMQSetting)
         {
+            _logger = logger;
             _rabbitMQSsetting = rabbitMQSetting.Value;
         }
 
-        public async Task PublishMessageAsync(T message, string queueName)
+        public async Task PublishMessageAsync<T>(T message, string queueName)
         {
             var factory = new ConnectionFactory
             {
@@ -40,7 +43,7 @@ namespace WindDataReceiver.MessageBroker
             await channel.BasicPublishAsync(exchange: string.Empty, routingKey: queueName,
                 mandatory: true, basicProperties: properties, body: body);
 
-            Console.WriteLine($"[x] Sent: {messageJson}");
+            _logger.LogInformation($"Sent: {messageJson}");
         }
     }
 }

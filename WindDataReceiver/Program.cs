@@ -4,14 +4,14 @@ using WindDataReceiver.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.Configure<RabbitMQSetting>(builder.Configuration.GetSection("RabbitMQ"));
+builder.Services.AddSingleton(typeof(IRabbitMQPublisher), typeof(RabbitMQPublisher));
+builder.Services.AddHostedService<ComPortWorker>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHostedService<ComPortWorker>();
-builder.Services.Configure<RabbitMQSetting>(builder.Configuration.GetSection("RabbitMQ"));
-builder.Services.AddScoped(typeof(IRabbitMQPublisher<>), typeof(RabbitMQPublisher<>));
 
 var app = builder.Build();
 

@@ -1,7 +1,7 @@
 ﻿namespace WindDataReceiver.MessageBroker
 {
-    public interface IRabbitMQPublisher<T>
+    public interface IRabbitMQPublisher
     {
-        Task PublishMessageAsync(T message, string queueName);
+        Task PublishMessageAsync<T>(T message, string queueName);
     }
 }
