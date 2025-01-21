@@ -134,8 +134,9 @@ namespace WindDataReceiver.Services
                 string wd = data.Substring(endIndex + 1).Trim();
                 WindData windData = new WindData
                 {
-                    WindSpeed = double.Parse(ws,NumberStyles.Any, CultureInfo.InvariantCulture),
-                    WindDirection = double.Parse(wd, NumberStyles.Any, CultureInfo.InvariantCulture)
+                    WindSpeed = double.Parse(ws, NumberStyles.Any, CultureInfo.InvariantCulture),
+                    WindDirection = double.Parse(wd, NumberStyles.Any, CultureInfo.InvariantCulture),
+                    Datestamp = DateTime.Now
                 };
                 await _rabbitMQPublisher.PublishMessageAsync(windData, RabbitMQQueues.WindDataQueue);
                 _logger.LogInformation($"ws = {ws}, wd = {wd}");

@@ -4,5 +4,6 @@
     {
         public double WindSpeed { get; set; }
         public double WindDirection { get; set; }
+        public DateTime Datestamp { get; set; }
     }
 }
