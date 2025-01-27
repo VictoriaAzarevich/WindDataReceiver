@@ -94,7 +94,7 @@ namespace WindDataReceiver.Services
                 else
                 {
                     _dataBuffer.Remove(0, startIndex);
-                    await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
+                    //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     _logger.LogWarning("Incorrect package.");
                     break;
                 }
@@ -110,13 +110,13 @@ namespace WindDataReceiver.Services
                         bufferContent = _dataBuffer.ToString();
                     }
 
-                    await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
+                    //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     _logger.LogWarning("Incorrect package.");
                 }
                 else
                 {
                     _dataBuffer.Clear();
-                    await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
+                    //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     _logger.LogWarning("Incorrect package.");
                 }
             }
@@ -143,7 +143,7 @@ namespace WindDataReceiver.Services
             }
             else
             {
-                await _rabbitMQPublisher.PublishMessageAsync("Parsing error", RabbitMQQueues.WindDataQueue);
+                //await _rabbitMQPublisher.PublishMessageAsync("Parsing error", RabbitMQQueues.WindDataQueue);
                 _logger.LogWarning($"Parsing error: {data}.");
             }
         }
