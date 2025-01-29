@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.Configure<RabbitMQSetting>(builder.Configuration.GetSection("RabbitMQ"));
-builder.Services.AddSingleton(typeof(IRabbitMQPublisher), typeof(RabbitMQPublisher));
+builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 builder.Services.AddHostedService<ComPortWorker>();
 
 builder.Services.AddControllers();

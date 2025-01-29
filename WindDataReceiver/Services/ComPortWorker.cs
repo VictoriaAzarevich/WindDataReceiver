@@ -15,6 +15,7 @@ namespace WindDataReceiver.Services
         private const int NumberOfBits = 15;
         private const char StartChar = '$';
         private const string EndChars = "\r\n";
+        private const char SplitChar = ',';
 
         public ComPortWorker(ILogger<ComPortWorker> logger, IRabbitMQPublisher rabbitMQPublisher)
         {
@@ -56,8 +57,6 @@ namespace WindDataReceiver.Services
                     {
                         _logger.LogWarning($"Data reading error: {ex.Message}.");
                     }
-
-                    await Task.Delay(1000, stoppingToken);
                 }
             }
             catch (Exception ex)
@@ -93,9 +92,9 @@ namespace WindDataReceiver.Services
                 }
                 else
                 {
+                    _logger.LogWarning($"Incorrect package: {_dataBuffer}.");
                     _dataBuffer.Remove(0, startIndex);
                     //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
-                    _logger.LogWarning("Incorrect package.");
                     break;
                 }
             }
@@ -106,18 +105,17 @@ namespace WindDataReceiver.Services
                 {
                     while (bufferContent.Count(c => c == StartChar) != 1)
                     {
+                        _logger.LogWarning($"Incorrect package: {_dataBuffer}.");
                         _dataBuffer.Remove(0, bufferContent.IndexOf(StartChar, 1));
                         bufferContent = _dataBuffer.ToString();
                     }
-
                     //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
-                    _logger.LogWarning("Incorrect package.");
                 }
                 else
                 {
+                    _logger.LogWarning($"Incorrect package: {bufferContent}.");
                     _dataBuffer.Clear();
                     //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
-                    _logger.LogWarning("Incorrect package.");
                 }
             }
         }
@@ -129,14 +127,14 @@ namespace WindDataReceiver.Services
             if (Regex.IsMatch(data, pattern))
             {
                 int startIndex = data.IndexOf(StartChar) + 1;
-                int endIndex = data.IndexOf(',');
+                int endIndex = data.IndexOf(SplitChar);
                 string ws = data.Substring(startIndex, endIndex - 1);
                 string wd = data.Substring(endIndex + 1).Trim();
                 WindData windData = new WindData
                 {
                     WindSpeed = double.Parse(ws, NumberStyles.Any, CultureInfo.InvariantCulture),
                     WindDirection = double.Parse(wd, NumberStyles.Any, CultureInfo.InvariantCulture),
-                    Datestamp = DateTime.UtcNow.Date
+                    Datestamp = DateTime.UtcNow
                 };
                 await _rabbitMQPublisher.PublishMessageAsync(windData, RabbitMQQueues.WindDataQueue);
                 _logger.LogInformation($"ws = {ws}, wd = {wd}");

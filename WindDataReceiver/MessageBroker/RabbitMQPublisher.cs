@@ -1,34 +1,31 @@
-﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
 using System.Text;
-using WindDataReceiver.Services;
 
 namespace WindDataReceiver.MessageBroker
 {
     public class RabbitMQPublisher : IRabbitMQPublisher
     {
         private readonly ILogger<RabbitMQPublisher> _logger;
-        private readonly RabbitMQSetting _rabbitMQSsetting;
+        private readonly RabbitMQSetting _rabbitMQSetting;
 
         public RabbitMQPublisher(ILogger<RabbitMQPublisher> logger, IOptions<RabbitMQSetting> rabbitMQSetting)
         {
             _logger = logger;
-            _rabbitMQSsetting = rabbitMQSetting.Value;
+            _rabbitMQSetting = rabbitMQSetting.Value;
         }
 
         public async Task PublishMessageAsync<T>(T message, string queueName)
         {
             var factory = new ConnectionFactory
             {
-                HostName = _rabbitMQSsetting.HostName,
-                UserName = _rabbitMQSsetting.UserName,
-                Password = _rabbitMQSsetting.Password,
+                HostName = _rabbitMQSetting.HostName,
+                UserName = _rabbitMQSetting.UserName,
+                Password = _rabbitMQSetting.Password,
             };
             using var connection = await factory.CreateConnectionAsync();
             using var channel = await connection.CreateChannelAsync();
-
             await channel.QueueDeclareAsync(queue: queueName, durable: true,
                 exclusive: false, autoDelete: false, arguments: null);
 
