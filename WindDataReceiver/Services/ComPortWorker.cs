@@ -94,7 +94,7 @@ namespace WindDataReceiver.Services
                 {
                     _logger.LogWarning($"Incorrect package: {_dataBuffer}.");
                     _dataBuffer.Remove(0, startIndex);
-                    //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
+                    // await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     break;
                 }
             }
@@ -115,16 +115,16 @@ namespace WindDataReceiver.Services
                 {
                     _logger.LogWarning($"Incorrect package: {bufferContent}.");
                     _dataBuffer.Clear();
-                    //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
+                    // await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                 }
             }
         }
 
         private async Task ProcessDataAsync(string data)
         {
-            string pattern = @"^\$\d+(\.\d+)?\,\d+(\.\d+)?\r$";
+            // string pattern = @"^\$\d+(\.\d+)?\,\d+(\.\d+)?\r$";
 
-            if (Regex.IsMatch(data, pattern))
+            if (SensorRegexFactory.SensorRegex().IsMatch(data))
             {
                 int startIndex = data.IndexOf(StartChar) + 1;
                 int endIndex = data.IndexOf(SplitChar);
@@ -141,9 +141,15 @@ namespace WindDataReceiver.Services
             }
             else
             {
-                //await _rabbitMQPublisher.PublishMessageAsync("Parsing error", RabbitMQQueues.WindDataQueue);
+                // await _rabbitMQPublisher.PublishMessageAsync("Parsing error", RabbitMQQueues.WindDataQueue);
                 _logger.LogWarning($"Parsing error: {data}.");
             }
         }
+    }
+
+    public static partial class SensorRegexFactory
+    {
+        [GeneratedRegex(@"^\$\d + (\.\d +)?\,\d+(\.\d+)?\r$")]
+        public static partial Regex SensorRegex();
     }
 }
