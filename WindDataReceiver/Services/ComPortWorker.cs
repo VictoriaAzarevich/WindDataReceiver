@@ -1,36 +1,30 @@
-﻿using System.Globalization;
+﻿using Contracts;
+using MassTransit;
+using System.Globalization;
 using System.IO.Ports;
 using System.Text;
 using System.Text.RegularExpressions;
-using WindDataReceiver.MessageBroker;
 
 namespace WindDataReceiver.Services
 {
-    public class ComPortWorker : BackgroundService
+    public class ComPortWorker(ILogger<ComPortWorker> logger,
+        IPublishEndpoint publishEndpoint) : BackgroundService
     {
-        private readonly ILogger<ComPortWorker> _logger;
-        private readonly SerialPort _serialPort;
-        private readonly StringBuilder _dataBuffer;
-        private readonly IRabbitMQPublisher _rabbitMQPublisher;
+        private readonly ILogger<ComPortWorker> _logger = logger;
+        private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
+        private readonly SerialPort _serialPort = new()
+        {
+            PortName = "COM9",
+            BaudRate = 2400,
+            Parity = Parity.None,
+            DataBits = 8,
+            StopBits = StopBits.One
+        };
+        private readonly StringBuilder _dataBuffer = new();
         private const int NumberOfBits = 15;
         private const char StartChar = '$';
         private const string EndChars = "\r\n";
-        private const char SplitChar = ',';
-
-        public ComPortWorker(ILogger<ComPortWorker> logger, IRabbitMQPublisher rabbitMQPublisher)
-        {
-            _logger = logger;
-            _serialPort = new SerialPort
-            {
-                PortName = "COM9",
-                BaudRate = 2400,
-                Parity = Parity.None,
-                DataBits = 8,
-                StopBits = StopBits.One
-            };
-            _dataBuffer = new StringBuilder();
-            _rabbitMQPublisher = rabbitMQPublisher;
-        }
+        private static readonly Regex _sensorRegex = SensorRegexFactory.SensorRegex();
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -57,6 +51,8 @@ namespace WindDataReceiver.Services
                     {
                         _logger.LogWarning($"Data reading error: {ex.Message}.");
                     }
+
+                    await Task.Delay(50, stoppingToken);
                 }
             }
             catch (Exception ex)
@@ -94,7 +90,6 @@ namespace WindDataReceiver.Services
                 {
                     _logger.LogWarning($"Incorrect package: {_dataBuffer}.");
                     _dataBuffer.Remove(0, startIndex);
-                    // await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                     break;
                 }
             }
@@ -109,39 +104,34 @@ namespace WindDataReceiver.Services
                         _dataBuffer.Remove(0, bufferContent.IndexOf(StartChar, 1));
                         bufferContent = _dataBuffer.ToString();
                     }
-                    //await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                 }
                 else
                 {
                     _logger.LogWarning($"Incorrect package: {bufferContent}.");
                     _dataBuffer.Clear();
-                    // await _rabbitMQPublisher.PublishMessageAsync("Incorrect package", RabbitMQQueues.WindDataQueue);
                 }
             }
         }
 
         private async Task ProcessDataAsync(string data)
         {
-            // string pattern = @"^\$\d+(\.\d+)?\,\d+(\.\d+)?\r$";
-
-            if (SensorRegexFactory.SensorRegex().IsMatch(data))
+            var match = _sensorRegex.Match(data);
+            if (match.Success)
             {
-                int startIndex = data.IndexOf(StartChar) + 1;
-                int endIndex = data.IndexOf(SplitChar);
-                string ws = data.Substring(startIndex, endIndex - 1);
-                string wd = data.Substring(endIndex + 1).Trim();
-                WindData windData = new WindData
+                double windSpeed = double.Parse(match.Groups["ws"].Value, NumberStyles.Any, CultureInfo.InvariantCulture);
+                double windDirection = double.Parse(match.Groups["wd"].Value, NumberStyles.Any, CultureInfo.InvariantCulture);
+
+                await _publishEndpoint.Publish<ISensorDataMessage>(new
                 {
-                    WindSpeed = double.Parse(ws, NumberStyles.Any, CultureInfo.InvariantCulture),
-                    WindDirection = double.Parse(wd, NumberStyles.Any, CultureInfo.InvariantCulture),
+                    WindSpeed = windSpeed,
+                    WindDirection = windDirection,
                     Datestamp = DateTime.UtcNow
-                };
-                await _rabbitMQPublisher.PublishMessageAsync(windData, RabbitMQQueues.WindDataQueue);
-                _logger.LogInformation($"ws = {ws}, wd = {wd}");
+                });
+
+                _logger.LogInformation($"ws = {windSpeed}, wd = {windDirection}");
             }
             else
             {
-                // await _rabbitMQPublisher.PublishMessageAsync("Parsing error", RabbitMQQueues.WindDataQueue);
                 _logger.LogWarning($"Parsing error: {data}.");
             }
         }
@@ -149,7 +139,7 @@ namespace WindDataReceiver.Services
 
     public static partial class SensorRegexFactory
     {
-        [GeneratedRegex(@"^\$\d + (\.\d +)?\,\d+(\.\d+)?\r$")]
+        [GeneratedRegex(@"^\$(?<ws>\d+(\.\d+)?),(?<wd>\d+(\.\d+)?)\r?\n?$")]
         public static partial Regex SensorRegex();
     }
 }
