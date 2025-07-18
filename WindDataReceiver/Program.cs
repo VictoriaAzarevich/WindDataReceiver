@@ -11,11 +11,10 @@ builder.Services.AddMassTransit(x =>
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(
-            rabbitConfig["Host"],
-            rabbitConfig["VirtualHost"],
+            rabbitConfig["HostName"],
             h =>
             {
-                h.Username(rabbitConfig["USername"]);
+                h.Username(rabbitConfig["UserName"]);
                 h.Password(rabbitConfig["Password"]);
             });
     });

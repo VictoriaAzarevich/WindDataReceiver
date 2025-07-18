@@ -8,13 +8,13 @@ using System.Text.RegularExpressions;
 namespace WindDataReceiver.Services
 {
     public class ComPortWorker(ILogger<ComPortWorker> logger,
-        IPublishEndpoint publishEndpoint) : BackgroundService
+        IBus bus) : BackgroundService
     {
         private readonly ILogger<ComPortWorker> _logger = logger;
-        private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
+        private readonly IBus _bus = bus;
         private readonly SerialPort _serialPort = new()
         {
-            PortName = "COM9",
+            PortName = "COM2",
             BaudRate = 2400,
             Parity = Parity.None,
             DataBits = 8,
@@ -121,7 +121,7 @@ namespace WindDataReceiver.Services
                 double windSpeed = double.Parse(match.Groups["ws"].Value, NumberStyles.Any, CultureInfo.InvariantCulture);
                 double windDirection = double.Parse(match.Groups["wd"].Value, NumberStyles.Any, CultureInfo.InvariantCulture);
 
-                await _publishEndpoint.Publish<ISensorDataMessage>(new
+                await _bus.Publish<ISensorDataMessage>(new
                 {
                     WindSpeed = windSpeed,
                     WindDirection = windDirection,
