@@ -10,7 +10,12 @@ This .NET-based microservice receives wind data from a serial COM port, processe
 * Message Forwarding: Sends processed and validated data to another microservice via RabbitMQ.
 
 ## **Technologies Used**
-* .NET
+* ASP.NET Core
 * RabbitMQ
 * System.IO.Ports for serial communication
 * Async processing for non-blocking I/O
+
+## Architecture Overview
+* This service is part of a two-service system:
+* Receiver Service (this project): Reads and parses data from a serial COM port and sends messages to RabbitMQ.
+* Storage Service: Consumes the messages, stores them, and provides access via an API.
